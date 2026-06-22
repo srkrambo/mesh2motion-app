@@ -1,6 +1,18 @@
 import { SkeletonType } from './enums/SkeletonType'
 import { humanVariations, foxVariations, birdVariations, kaijuVariations, fishVariations, ModelVariation } from './RigModelVariations'
 
+/** A named group of bones that the user can toggle on or off during skeleton loading. */
+export interface BoneGroup {
+  /** Unique identifier used to track enabled/disabled state */
+  id: string
+  /** Human-readable label shown in the UI */
+  name: string
+  /** Lowercase substrings matched against bone names to identify group members */
+  bone_name_patterns: string[]
+  /** Whether the group is included (animated) by default */
+  enabled_by_default: boolean
+}
+
 export interface RigConfigEntry {
   skeleton_type: SkeletonType // The SkeletonType enum member for this rig
   model_file: string // Model file path relative to the static root, e.g. 'models/model-human.glb'
@@ -13,6 +25,8 @@ export interface RigConfigEntry {
   // we only have one bone per rig that we allow position keyframes (besides root)
   position_tracking_bone_name: string 
   model_variations?: ModelVariation[] // similar models (human, zombie, etc)
+  /** Optional bone groups that the user can enable or disable (e.g. ears, tail, wings) */
+  optional_bone_groups?: BoneGroup[]
 }
 
 /**
@@ -43,7 +57,11 @@ export class RigConfig {
       animation_preview_folder: 'fox',
       position_tracking_bone_name: 'hips',
       skeleton_template_image_url: 'rigs/reference/fox.png',
-      model_variations: foxVariations
+      model_variations: foxVariations,
+      optional_bone_groups: [
+        { id: 'ears', name: 'Ears', bone_name_patterns: ['ear'], enabled_by_default: true },
+        { id: 'tail', name: 'Tail', bone_name_patterns: ['tail'], enabled_by_default: true }
+      ]
     } satisfies RigConfigEntry,
     {
       skeleton_type: SkeletonType.Bird,
@@ -54,7 +72,10 @@ export class RigConfig {
       animation_preview_folder: 'bird',
       position_tracking_bone_name: 'hips',
       skeleton_template_image_url: 'rigs/reference/bird.png',
-      model_variations: birdVariations
+      model_variations: birdVariations,
+      optional_bone_groups: [
+        { id: 'tail', name: 'Tail', bone_name_patterns: ['tail', 'feather'], enabled_by_default: true }
+      ]
     } satisfies RigConfigEntry,
     {
       skeleton_type: SkeletonType.Dragon,
@@ -65,6 +86,10 @@ export class RigConfig {
       animation_preview_folder: 'dragon',
       position_tracking_bone_name: 'hips',
       skeleton_template_image_url: 'rigs/reference/dragon.png',
+      optional_bone_groups: [
+        { id: 'tail', name: 'Tail', bone_name_patterns: ['tail'], enabled_by_default: true },
+        { id: 'wings', name: 'Wings', bone_name_patterns: ['wing'], enabled_by_default: true }
+      ]
     } satisfies RigConfigEntry,
     {
       skeleton_type: SkeletonType.Kaiju,
@@ -75,7 +100,10 @@ export class RigConfig {
       animation_preview_folder: 'kaiju',
       position_tracking_bone_name: 'hips',
       skeleton_template_image_url: 'rigs/reference/kaiju.png',
-      model_variations: kaijuVariations
+      model_variations: kaijuVariations,
+      optional_bone_groups: [
+        { id: 'tail', name: 'Tail', bone_name_patterns: ['tail'], enabled_by_default: true }
+      ]
     } satisfies RigConfigEntry,
     {
       skeleton_type: SkeletonType.Spider,
@@ -86,6 +114,9 @@ export class RigConfig {
       animation_preview_folder: 'spider',
       position_tracking_bone_name: 'hips',
       skeleton_template_image_url: 'rigs/reference/spider.png',
+      optional_bone_groups: [
+        { id: 'abdomen', name: 'Abdomen', bone_name_patterns: ['abdomen', 'abdo'], enabled_by_default: true }
+      ]
     } satisfies RigConfigEntry,
     {
       skeleton_type: SkeletonType.Snake,
@@ -106,7 +137,11 @@ export class RigConfig {
       animation_preview_folder: 'shark',
       position_tracking_bone_name: 'pelvis',
       skeleton_template_image_url: 'rigs/reference/shark.png',
-      model_variations: fishVariations
+      model_variations: fishVariations,
+      optional_bone_groups: [
+        { id: 'fins', name: 'Fins', bone_name_patterns: ['fin'], enabled_by_default: true },
+        { id: 'tail', name: 'Tail', bone_name_patterns: ['tail'], enabled_by_default: true }
+      ]
     } satisfies RigConfigEntry
   ]
 

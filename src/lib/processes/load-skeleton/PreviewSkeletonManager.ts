@@ -3,7 +3,8 @@ import { type GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import type GLTFResult from './interfaces/GLTFResult'
 import { type HandSkeletonType, SkeletonType } from '../../enums/SkeletonType'
 import { HandHelper } from './HandHelper'
-import { RigConfig } from '../../RigConfig'
+import { BoneGroupHelper } from './BoneGroupHelper'
+import { RigConfig, type BoneGroup } from '../../RigConfig'
 
 const skeleton_group_name: string = 'preview_skeleton_group'
 
@@ -14,7 +15,8 @@ export async function add_preview_skeleton (
   root: Scene,
   skeleton_type: SkeletonType,
   hand_skeleton_type: HandSkeletonType,
-  skeleton_scale: number = 1.0
+  skeleton_scale: number = 1.0,
+  disabled_group_ids: string[] = []
 ): Promise<Object3D<Object3DEventMap>> {
   let preview_skeleton_group = root.getObjectByName(skeleton_group_name) as Group | undefined
 
@@ -23,7 +25,10 @@ export async function add_preview_skeleton (
     // Read previous skeleton info from userData
     const previous_file_path = preview_skeleton_group.userData.skeleton_type
     const previous_hand_type = preview_skeleton_group.userData.hand_skeleton_type
-    if (previous_file_path === skeleton_type && previous_hand_type === hand_skeleton_type) {
+    const previous_disabled_groups: string = JSON.stringify(preview_skeleton_group.userData.disabled_group_ids ?? [])
+    const current_disabled_groups: string = JSON.stringify(disabled_group_ids)
+    if (previous_file_path === skeleton_type && previous_hand_type === hand_skeleton_type &&
+        previous_disabled_groups === current_disabled_groups) {
       // Only update scale
       preview_skeleton_group.scale.set(skeleton_scale, skeleton_scale, skeleton_scale)
       // Return the first child (should be loaded_scene)
@@ -40,6 +45,7 @@ export async function add_preview_skeleton (
   // Store current skeleton info for future comparison
   preview_skeleton_group.userData.skeleton_type = skeleton_type
   preview_skeleton_group.userData.hand_skeleton_type = hand_skeleton_type
+  preview_skeleton_group.userData.disabled_group_ids = disabled_group_ids
   root.add(preview_skeleton_group)
 
   // Resolve the rig file path from the central config
@@ -54,6 +60,14 @@ export async function add_preview_skeleton (
     const helper = new HandHelper()
     helper.modify_hand_skeleton(loaded_scene, hand_skeleton_type)
   }
+
+  // Apply optional bone group filtering
+  const optional_bone_groups: BoneGroup[] = RigConfig.by_skeleton_type(skeleton_type)?.optional_bone_groups ?? []
+  if (disabled_group_ids.length > 0 && optional_bone_groups.length > 0) {
+    const bone_group_helper = new BoneGroupHelper()
+    bone_group_helper.remove_disabled_bone_groups(loaded_scene, disabled_group_ids, optional_bone_groups)
+  }
+
   const skeleton_helper = new SkeletonHelper(loaded_scene.children[0])
   skeleton_helper.name = 'preview_skeleton'
   preview_skeleton_group.add(skeleton_helper)

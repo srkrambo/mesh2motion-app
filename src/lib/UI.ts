@@ -24,6 +24,7 @@ export class UI {
   dom_skeleton_drop_type: HTMLSelectElement | null = null
   dom_hand_skeleton_options: HTMLElement | null = null
   dom_hand_skeleton_selection: HTMLSelectElement | null = null
+  dom_bone_groups_container: HTMLElement | null = null
   dom_mirror_skeleton_checkbox: HTMLInputElement | null = null
   dom_independent_bone_movement_checkbox: HTMLInputElement | null = null
   dom_independent_bone_movement_group: HTMLElement | null = null
@@ -148,6 +149,7 @@ export class UI {
     this.dom_skeleton_drop_type = document.querySelector('#skeleton-selection')
     this.dom_hand_skeleton_options = document.querySelector('#hand-skeleton-options')
     this.dom_hand_skeleton_selection = document.querySelector('#hand-skeleton-selection')
+    this.dom_bone_groups_container = document.querySelector('#bone-groups-options')
     this.dom_mirror_skeleton_checkbox = document.querySelector('#mirror-skeleton')
     this.dom_independent_bone_movement_checkbox = document.querySelector('#independent-bone-movement')
     this.dom_independent_bone_movement_group = document.querySelector('#independent-bone-movement-group')

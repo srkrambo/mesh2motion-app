@@ -156,6 +156,15 @@
             </select>
           </div>
 
+          <!-- Optional bone groups – dynamically populated per skeleton type -->
+          <div id="bone-groups-options" class="alternate-background-section" style="display: none; flex-direction: column; gap: 0.5rem;">
+            <span style="display: flex; gap: 1rem;">
+              <span>Bone Groups</span>
+              <img data-tippy-content="Choose which parts of the skeleton should be animated. Unchecked groups will be removed from the skeleton and remain static." src="images/icons/help.svg" alt="Help" width="20" height="20" />
+            </span>
+            <!-- checkboxes injected here by StepLoadSkeleton -->
+          </div>
+
           <!-- scale skeleton to get it close to the model size -->
           <div id="scale-skeleton-controls" style="display: none; flex-direction: column;">
             <div style="display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 1rem;">

@@ -2,12 +2,13 @@ import { UI } from '../../UI.ts'
 import { Object3D, type Scene, type Object3DEventMap } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { SkeletonType, type HandSkeletonType } from '../../enums/SkeletonType.js'
-import { RigConfig } from '../../RigConfig.ts'
+import { RigConfig, type BoneGroup } from '../../RigConfig.ts'
 import { DOMUtilities } from '../../DOMUtilities.ts'
 import type GLTFResult from './interfaces/GLTFResult.ts'
 import { add_origin_markers, remove_origin_markers } from './OriginMarkerManager'
 import { add_preview_skeleton, remove_preview_skeleton } from './PreviewSkeletonManager.ts'
 import { HandHelper } from './HandHelper.ts'
+import { BoneGroupHelper } from './BoneGroupHelper.ts'
 
 // Note: EventTarget is a built-ininterface and do not need to import it
 export class StepLoadSkeleton extends EventTarget {
@@ -27,6 +28,9 @@ export class StepLoadSkeleton extends EventTarget {
   // this helps the marketing page set the type and doesn't rely on a DOM value
   // probably could refactor this a bit to be cleaner later.
   private manual_set_skeleton_type: SkeletonType = SkeletonType.None
+
+  // tracks which optional bone group IDs are currently disabled by the user
+  private _disabled_bone_group_ids: string[] = []
 
   public skeleton_type (): SkeletonType {
     if (this.skeleton_file_path() === SkeletonType.None) {
@@ -70,7 +74,7 @@ export class StepLoadSkeleton extends EventTarget {
     // so just use that and load the preview right when we enter this step
     if (!this.has_select_skeleton_ui_option()) {
       add_preview_skeleton(this._main_scene, this.skeleton_file_path(),
-        this.hand_skeleton_type(), this.skeleton_scale_percentage).catch((err) => {
+        this.hand_skeleton_type(), this.skeleton_scale_percentage, this._disabled_bone_group_ids).catch((err) => {
         console.error('error loading preview skeleton: ', err)
       })
 
@@ -78,6 +82,9 @@ export class StepLoadSkeleton extends EventTarget {
 
     // Initialize hand skeleton hand options visibility
     this.toggle_ui_hand_skeleton_options()
+
+    // Populate optional bone groups UI for the currently selected skeleton
+    this.populate_bone_groups_ui()
 
     // add origin markers for debugging model loading issues
     add_origin_markers(this._main_scene)
@@ -136,6 +143,11 @@ export class StepLoadSkeleton extends EventTarget {
         // hand options only apply to human skeletons, so we need to show/hide when skeleton type changes
         this.toggle_ui_hand_skeleton_options()
 
+        // rebuild optional bone groups UI for the new skeleton type
+        // reset disabled groups since we changed skeleton types
+        this._disabled_bone_group_ids = []
+        this.populate_bone_groups_ui()
+
         // remove the "select a skeleton" option if we picked something else
         if (this.has_select_skeleton_ui_option()) {
           this.ui.dom_skeleton_drop_type?.options.remove(0)
@@ -148,7 +160,7 @@ export class StepLoadSkeleton extends EventTarget {
         // load the preview skeleton
         // need to get the file name for the correct skeleton
         // we pass the skeleton scale in the case where we set a skeleton, change scale, then change the skeleton
-        add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale()).then(() => {
+        add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale(), this._disabled_bone_group_ids).then(() => {
           // enable the ability to progress to next step
           this.allow_proceeding_to_next_step(true)
         }).catch((err) => {
@@ -176,7 +188,7 @@ export class StepLoadSkeleton extends EventTarget {
     this.ui.dom_hand_skeleton_selection?.addEventListener('change', () => {
       // rebuild the preview skeleton with the new hand skeleton type
       // make sure we keep existing scale if we made a change to that
-      add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale()).catch((err) => {
+      add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale(), this._disabled_bone_group_ids).catch((err) => {
         console.error('error loading preview skeleton: ', err)
       })
     })
@@ -202,7 +214,7 @@ export class StepLoadSkeleton extends EventTarget {
     if (this.ui.dom_scale_skeleton_percentage_display !== null) {
       this.ui.dom_scale_skeleton_percentage_display.textContent = display_value
     }
-    add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale_percentage)
+    add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale_percentage, this._disabled_bone_group_ids)
       .catch((err) => {
         console.error('error loading preview skeleton: ', err)
       })
@@ -238,6 +250,13 @@ export class StepLoadSkeleton extends EventTarget {
       if (this.skeleton_file_path() === SkeletonType.Human) {
         const helper = new HandHelper()
         helper.modify_hand_skeleton(this.loaded_armature, this.hand_skeleton_type())
+      }
+
+      // Apply optional bone group filtering
+      const optional_bone_groups: BoneGroup[] = RigConfig.by_skeleton_type(this.skeleton_file_path())?.optional_bone_groups ?? []
+      if (this._disabled_bone_group_ids.length > 0 && optional_bone_groups.length > 0) {
+        const bone_group_helper = new BoneGroupHelper()
+        bone_group_helper.remove_disabled_bone_groups(this.loaded_armature, this._disabled_bone_group_ids, optional_bone_groups)
       }
 
       this.loaded_armature.position.set(0, 0, 0)
@@ -296,5 +315,58 @@ export class StepLoadSkeleton extends EventTarget {
     } else {
       this.ui.dom_hand_skeleton_options.style.display = 'none'
     }
+  }
+
+  /**
+   * Rebuilds the bone group checkboxes based on the currently selected skeleton type.
+   * If the skeleton has no optional bone groups the panel is hidden entirely.
+   */
+  private populate_bone_groups_ui (): void {
+    const container = this.ui.dom_bone_groups_container
+    if (container === null) return
+
+    const optional_bone_groups: BoneGroup[] = RigConfig.by_skeleton_type(this.skeleton_file_path())?.optional_bone_groups ?? []
+
+    if (optional_bone_groups.length === 0) {
+      container.style.display = 'none'
+      return
+    }
+
+    // Keep the first child (the heading span) and remove any previously injected checkboxes
+    while (container.children.length > 1) {
+      container.removeChild(container.lastChild as ChildNode)
+    }
+
+    // Build a checkbox row for each group
+    optional_bone_groups.forEach((group: BoneGroup) => {
+      const is_enabled: boolean = !this._disabled_bone_group_ids.includes(group.id)
+
+      const row = document.createElement('label')
+      row.style.cssText = 'display:flex;gap:0.5rem;align-items:center;cursor:pointer;'
+
+      const checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'
+      checkbox.checked = is_enabled
+      checkbox.dataset.groupId = group.id
+
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          this._disabled_bone_group_ids = this._disabled_bone_group_ids.filter(id => id !== group.id)
+        } else {
+          if (!this._disabled_bone_group_ids.includes(group.id)) {
+            this._disabled_bone_group_ids = [...this._disabled_bone_group_ids, group.id]
+          }
+        }
+        // Rebuild preview to reflect the new selection
+        add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale(), this._disabled_bone_group_ids)
+          .catch((err) => { console.error('error loading preview skeleton: ', err) })
+      })
+
+      row.appendChild(checkbox)
+      row.appendChild(document.createTextNode(group.name))
+      container.appendChild(row)
+    })
+
+    container.style.display = 'flex'
   }
 }
