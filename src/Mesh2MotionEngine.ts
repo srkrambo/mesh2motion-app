@@ -397,6 +397,7 @@ export class Mesh2MotionEngine {
 
       // finish initialization and add origin markers
       // this needs to happen at the end since it is expecting the mesh data
+      this.load_skeleton_step.set_model_mesh(this.load_model_step.model_meshes())
       this.load_skeleton_step.begin()
     }
     else if (this.process_step === ProcessStep.EditSkeleton) {

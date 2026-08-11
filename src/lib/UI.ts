@@ -20,6 +20,7 @@ export class UI {
 
   dom_load_skeleton_tools: HTMLElement | null = null
   dom_load_skeleton_button: HTMLButtonElement | null = null
+  dom_auto_rig_button: HTMLButtonElement | null = null
   dom_skeleton_edit_tools: HTMLElement | null = null
   dom_skeleton_drop_type: HTMLSelectElement | null = null
   dom_hand_skeleton_options: HTMLElement | null = null
@@ -144,6 +145,7 @@ export class UI {
     // UI controls for loading/working with skeleton
     this.dom_load_skeleton_tools = document.querySelector('#load-skeleton-tools')
     this.dom_load_skeleton_button = document.querySelector('#load-skeleton-button')
+    this.dom_auto_rig_button = document.querySelector('#auto-rig-button')
     this.dom_skeleton_edit_tools = document.querySelector('#skeleton-step-actions')
     this.dom_skeleton_drop_type = document.querySelector('#skeleton-selection')
     this.dom_hand_skeleton_options = document.querySelector('#hand-skeleton-options')

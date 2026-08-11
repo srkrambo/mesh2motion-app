@@ -8,6 +8,7 @@ import type GLTFResult from './interfaces/GLTFResult.ts'
 import { add_origin_markers, remove_origin_markers } from './OriginMarkerManager'
 import { add_preview_skeleton, remove_preview_skeleton } from './PreviewSkeletonManager.ts'
 import { HandHelper } from './HandHelper.ts'
+import { AutoRigService } from './AutoRigService.ts'
 
 // Note: EventTarget is a built-ininterface and do not need to import it
 export class StepLoadSkeleton extends EventTarget {
@@ -17,6 +18,9 @@ export class StepLoadSkeleton extends EventTarget {
 
   private _added_event_listeners: boolean = false
   private readonly _main_scene: Scene
+
+  // reference to the loaded model mesh used by AutoRigService
+  private _model_mesh: Object3D | null = null
 
   // used to help scale animations later
   // this is useful since position keyframes will need to be scaled
@@ -95,6 +99,16 @@ export class StepLoadSkeleton extends EventTarget {
     add_origin_markers(this._main_scene)
   }
 
+  /**
+   * Set a reference to the loaded model mesh so AutoRigService can compute
+   * its bounding box when the user clicks Auto-Rig.
+   */
+  public set_model_mesh (mesh: Object3D): void {
+    this._model_mesh = mesh
+    // Enable auto-rig button if a skeleton is already selected
+    this.update_auto_rig_button_state()
+  }
+
   public dispose (): void {
     remove_origin_markers(this._main_scene)
     remove_preview_skeleton(this._main_scene)
@@ -151,6 +165,7 @@ export class StepLoadSkeleton extends EventTarget {
         add_preview_skeleton(this._main_scene, this.skeleton_file_path(), this.hand_skeleton_type(), this.skeleton_scale()).then(() => {
           // enable the ability to progress to next step
           this.allow_proceeding_to_next_step(true)
+          this.update_auto_rig_button_state()
         }).catch((err) => {
           console.error('error loading preview skeleton: ', err)
         })
@@ -171,6 +186,25 @@ export class StepLoadSkeleton extends EventTarget {
         }
       })
     }// end if statement
+
+    // auto-rig button: load skeleton and then apply automatic bone placement
+    if (this.ui.dom_auto_rig_button !== null) {
+      this.ui.dom_auto_rig_button.addEventListener('click', () => {
+        if (this.ui.dom_skeleton_drop_type === null) {
+          console.warn('could not find skeleton selection drop down HTML element')
+          return
+        }
+        if (this._model_mesh === null) {
+          console.warn('AutoRig: no model mesh available for bounding box computation')
+          return
+        }
+
+        const rig_file = RigConfig.rig_file_for(this.skeleton_file_path())
+        if (rig_file !== undefined) {
+          this.load_skeleton_file_with_auto_rig(rig_file)
+        }
+      })
+    }
 
     // when hand skeleton type changes. update the preview skeleton
     this.ui.dom_hand_skeleton_selection?.addEventListener('change', () => {
@@ -258,6 +292,52 @@ export class StepLoadSkeleton extends EventTarget {
     const btn = this.ui.dom_load_skeleton_button as HTMLButtonElement | null
     if (!btn) return
     btn.disabled = !allow // disable when not allowed
+  }
+
+  // Enable/disable auto-rig button based on whether both a skeleton type and model mesh are available
+  private update_auto_rig_button_state (): void {
+    const btn = this.ui.dom_auto_rig_button
+    if (btn === null) return
+    const skeleton_ready = this.skeleton_file_path() !== SkeletonType.None && this.skeleton_file_path() !== SkeletonType.Error
+    btn.disabled = !(skeleton_ready && this._model_mesh !== null)
+  }
+
+  // Load skeleton then apply AutoRigService to position bones relative to the model
+  private load_skeleton_file_with_auto_rig (file_path: string): void {
+    this.loader.load(file_path, (gltf: GLTFResult) => {
+      let armature_found = false
+      let original_armature: Object3D = new Object3D()
+
+      gltf.scene.traverse((child: Object3D) => {
+        if (child.type === 'Bone' && !armature_found) {
+          armature_found = true
+          if (child.parent != null) {
+            original_armature = child.parent
+          } else {
+            console.warn('could not find armature parent while loading skeleton (auto-rig)')
+          }
+        }
+      })
+
+      this.loaded_armature = original_armature.clone()
+      this.loaded_armature.name = 'Loaded Armature'
+
+      if (this.skeleton_file_path() === SkeletonType.Human) {
+        const helper = new HandHelper()
+        helper.modify_hand_skeleton(this.loaded_armature, this.hand_skeleton_type())
+      }
+
+      this.loaded_armature.position.set(0, 0, 0)
+      this.loaded_armature.scale.set(this.skeleton_scale(), this.skeleton_scale(), this.skeleton_scale())
+      this.loaded_armature.updateWorldMatrix(true, true)
+
+      // Apply auto-rig bone placement using the model's bounding box
+      if (this._model_mesh !== null) {
+        AutoRigService.fit_to_mesh(this.loaded_armature, this._model_mesh, this.skeleton_type())
+      }
+
+      this.dispatchEvent(new CustomEvent('skeletonLoaded', { detail: this.loaded_armature }))
+    })
   }
 
   // returns a skeleton object that has been baked (applied) for scale
