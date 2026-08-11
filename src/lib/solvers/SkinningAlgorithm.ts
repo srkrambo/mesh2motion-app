@@ -10,6 +10,10 @@ import { HeadWeightCorrector } from './HeadWeightCorrector.js'
 import { WeightCalculator } from './WeightCalculator.js'
 import { WeightSmoother } from './WeightSmoother.js'
 import { WeightNormalizer } from './WeightNormalizer.js'
+import { HeatSkinningWeights } from './HeatSkinningWeights.js'
+
+/** Strategy for computing initial bone weights. */
+export type SkinningMethod = 'classic' | 'heat'
 
 /**
  * SkinningAlgorithm
@@ -29,6 +33,9 @@ export default class SkinningAlgorithm {
   private use_head_weight_correction: boolean = false
   private preview_plane_height: number = 1.4
 
+  // Skinning method: 'classic' uses closest-bone heuristic, 'heat' uses heat diffusion
+  private skinning_method: SkinningMethod = 'classic'
+
   constructor (bone_hier: Object3D, skeleton_type: SkeletonType) {
     this.skeleton_type = skeleton_type
     this.bones_master_data = Utility.bone_list_from_hierarchy(bone_hier)
@@ -46,7 +53,21 @@ export default class SkinningAlgorithm {
     this.preview_plane_height = height
   }
 
+  /** Select the skinning strategy. 'heat' produces smoother weights at higher CPU cost. */
+  public set_skinning_method (method: SkinningMethod): void {
+    this.skinning_method = method
+  }
+
   public calculate_indexes_and_weights (): number[][] {
+    if (this.skinning_method === 'heat') {
+      return this.calculate_with_heat_weights()
+    }
+    return this.calculate_with_classic_weights()
+  }
+
+  // ── Classic (closest-bone) pipeline ────────────────────────────────────────
+
+  private calculate_with_classic_weights (): number[][] {
     const skin_indices: number[] = []
     const skin_weights: number[] = []
 
@@ -62,11 +83,11 @@ export default class SkinningAlgorithm {
     weight_smoother.smooth_bone_weight_boundaries(skin_indices, skin_weights)
     console.timeEnd('calculate_closest_bone_weights')
 
-    // Step 4: Normalize weights so all vertices sum to 1.0
+    // Step 3: Normalize weights so all vertices sum to 1.0
     const weight_normalizer = new WeightNormalizer(this.geometry)
     weight_normalizer.normalize_weights(skin_weights)
 
-    // Step 5: Apply head weight correction if enabled
+    // Step 4: Apply head weight correction if enabled
     if (this.use_head_weight_correction) {
       const head_weight_corrector = new HeadWeightCorrector(
         this.geometry,
@@ -78,6 +99,28 @@ export default class SkinningAlgorithm {
     }
 
     console.log('do we have any leftover incorrect weights ', weight_normalizer.find_vertices_with_incorrect_weight_sum(skin_weights))
+
+    return [skin_indices, skin_weights]
+  }
+
+  // ── Heat-diffusion pipeline ─────────────────────────────────────────────────
+
+  private calculate_with_heat_weights (): number[][] {
+    console.time('calculate_heat_weights')
+    const result = HeatSkinningWeights.compute(this.geometry, this.bones_master_data)
+    console.timeEnd('calculate_heat_weights')
+
+    const { skin_indices, skin_weights } = result
+
+    // Apply head weight correction if enabled (same post-processing as classic path)
+    if (this.use_head_weight_correction) {
+      const head_weight_corrector = new HeadWeightCorrector(
+        this.geometry,
+        this.bones_master_data,
+        this.preview_plane_height
+      )
+      head_weight_corrector.apply_head_weight_correction(skin_indices, skin_weights)
+    }
 
     return [skin_indices, skin_weights]
   }

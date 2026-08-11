@@ -1,11 +1,14 @@
 import {
   Box3,
+  BufferGeometry,
+  Mesh,
+  Object3D,
   Vector3,
   Matrix4,
-  type Object3D,
   type Bone,
 } from 'three'
 import { SkeletonType } from '../../enums/SkeletonType.ts'
+import { SkeletonExtractor, type SkeletonExtractorOptions } from '../../solvers/SkeletonExtractor.ts'
 
 // Normalized position ratio [x, y, z] where each component is in [0, 1]:
 //   x: 0 = bbox left, 1 = bbox right
@@ -369,6 +372,100 @@ export class AutoRigService {
     }
 
     return armature
+  }
+
+  /**
+   * Generate a new skeleton from scratch using geometry-driven medial-axis extraction
+   * (Pinocchio / SkeletonExtractor algorithm).
+   *
+   * Unlike `fit_to_mesh()`, this method does NOT require a pre-existing bone template.
+   * It derives bone positions directly from the mesh geometry.
+   *
+   * @param model_mesh   - The loaded model Object3D whose geometry drives extraction
+   * @param options      - Optional tuning parameters for the extractor
+   * @returns A newly created Object3D armature with generated Bone children
+   */
+  public static generate_from_mesh (
+    model_mesh: Object3D,
+    options: SkeletonExtractorOptions = {}
+  ): Object3D {
+    // Collect geometry from the model (use the first SkinnedMesh or Mesh found)
+    let geometry: BufferGeometry | null = null
+    model_mesh.traverse((child) => {
+      if (geometry !== null) return
+      if (child instanceof Mesh && child.geometry instanceof BufferGeometry) {
+        geometry = child.geometry as BufferGeometry
+      }
+    })
+
+    if (geometry === null) {
+      console.warn('AutoRigService.generate_from_mesh: no mesh geometry found, returning fallback armature')
+      const fallback = new Object3D()
+      fallback.name = 'Generated Armature'
+      return fallback
+    }
+
+    // Ensure world matrices are current for correct voxelisation
+    model_mesh.updateWorldMatrix(true, true)
+
+    return SkeletonExtractor.extract(geometry, options)
+  }
+
+  /**
+   * Assign bone names based on a skeleton-type topology hint.
+   *
+   * After `generate_from_mesh()` produces unnamed `bone_N` bones, this method
+   * attempts to rename them using the same heuristic template ratios as
+   * `fit_to_mesh()` — mapping the nearest template slot to each generated bone.
+   *
+   * @param armature       - The generated armature from `generate_from_mesh()`
+   * @param model_mesh     - The source model (needed for bounding box)
+   * @param skeleton_type  - Hint for which template naming to apply
+   */
+  public static apply_template_names (
+    armature: Object3D,
+    model_mesh: Object3D,
+    skeleton_type: SkeletonType
+  ): void {
+    const ratios = AutoRigService.ratios_for_type(skeleton_type)
+    if (ratios.length === 0) return
+
+    const bbox = new Box3().setFromObject(model_mesh)
+    if (bbox.isEmpty()) return
+
+    const bbox_size = new Vector3()
+    bbox.getSize(bbox_size)
+
+    const bones = collect_bones_breadth_first(armature)
+    const used_entries = new Set<number>()
+
+    for (const bone of bones) {
+      armature.updateWorldMatrix(true, true)
+      const bone_world = new Vector3()
+      bone.getWorldPosition(bone_world)
+
+      // Map bone world position to normalised [0,1]³ coordinates
+      const norm_x = bbox_size.x > 0 ? (bone_world.x - bbox.min.x) / bbox_size.x : 0.5
+      const norm_y = bbox_size.y > 0 ? (bone_world.y - bbox.min.y) / bbox_size.y : 0.5
+      const norm_z = bbox_size.z > 0 ? (bone_world.z - bbox.min.z) / bbox_size.z : 0.5
+
+      // Find the closest unused template entry
+      let best_dist = Infinity
+      let best_entry_idx = -1
+      ratios.forEach((entry, entry_idx) => {
+        if (used_entries.has(entry_idx)) return
+        const dx = entry.ratio[0] - norm_x
+        const dy = entry.ratio[1] - norm_y
+        const dz = entry.ratio[2] - norm_z
+        const d = dx * dx + dy * dy + dz * dz
+        if (d < best_dist) { best_dist = d; best_entry_idx = entry_idx }
+      })
+
+      if (best_entry_idx >= 0) {
+        bone.name = ratios[best_entry_idx].keywords.join('_')
+        used_entries.add(best_entry_idx)
+      }
+    }
   }
 
   private static ratios_for_type (skeleton_type: SkeletonType): BoneRatioEntry[] {

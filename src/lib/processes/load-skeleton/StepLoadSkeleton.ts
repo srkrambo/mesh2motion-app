@@ -206,6 +206,17 @@ export class StepLoadSkeleton extends EventTarget {
       })
     }
 
+    // generate skeleton button: derive bones from mesh geometry (no template needed)
+    if (this.ui.dom_generate_skeleton_button !== null) {
+      this.ui.dom_generate_skeleton_button.addEventListener('click', () => {
+        if (this._model_mesh === null) {
+          console.warn('GenerateSkeleton: no model mesh available')
+          return
+        }
+        this.generate_skeleton_from_mesh()
+      })
+    }
+
     // when hand skeleton type changes. update the preview skeleton
     this.ui.dom_hand_skeleton_selection?.addEventListener('change', () => {
       // rebuild the preview skeleton with the new hand skeleton type
@@ -376,5 +387,27 @@ export class StepLoadSkeleton extends EventTarget {
     } else {
       this.ui.dom_hand_skeleton_options.style.display = 'none'
     }
+  }
+
+  /**
+   * Generate a skeleton directly from the loaded model mesh using the
+   * geometry-driven medial-axis extraction algorithm (Pinocchio / SkeletonExtractor).
+   * No template rig file is required.
+   */
+  private generate_skeleton_from_mesh (): void {
+    if (this._model_mesh === null) return
+
+    const generated = AutoRigService.generate_from_mesh(this._model_mesh)
+    generated.position.set(0, 0, 0)
+    generated.updateWorldMatrix(true, true)
+
+    // Optionally apply template names if a skeleton type is already selected
+    const skel_type = this.skeleton_type()
+    if (skel_type !== SkeletonType.None && skel_type !== SkeletonType.Error) {
+      AutoRigService.apply_template_names(generated, this._model_mesh, skel_type)
+    }
+
+    this.loaded_armature = generated
+    this.dispatchEvent(new CustomEvent('skeletonLoaded', { detail: this.loaded_armature }))
   }
 }
