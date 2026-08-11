@@ -276,6 +276,19 @@
 
 
 
+          <!-- Skinning method selector -->
+          <div class="pill-switch-group" aria-label="Skinning Weights Method">
+            <span class="pill-switch-label">Skinning Weights
+              <img data-tippy-content="Classic: fast closest-bone heuristic. Heat Diffusion: slower but produces smoother, more accurate weights based on mesh geodesics." src="images/icons/help.svg" alt="Help" width="20" height="20" />
+            </span>
+            <div id="skinning-method-group" class="pill-switch">
+              <input type="radio" id="skinning-method-classic" name="skinning-method" value="classic" checked />
+              <label for="skinning-method-classic">Classic</label>
+              <input type="radio" id="skinning-method-heat" name="skinning-method" value="heat" />
+              <label for="skinning-method-heat">Heat Diffusion</label>
+            </div>
+          </div>
+
           <!-- Preview plane controls -->
           <div id="use-head-weight-correction-container" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
             <div class="styled-checkbox">

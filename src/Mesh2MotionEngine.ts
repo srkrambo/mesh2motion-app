@@ -619,6 +619,7 @@ export class Mesh2MotionEngine {
       this.edit_skeleton_step.use_head_weight_correction(),
       this.edit_skeleton_step.get_preview_plane_height()
     )
+    this.weight_skin_step.set_skinning_method(this.edit_skeleton_step.skinning_method())
 
     this.weight_skin_step.create_binding_skeleton()
 
@@ -656,6 +657,7 @@ export class Mesh2MotionEngine {
       this.edit_skeleton_step.use_head_weight_correction(),
       this.edit_skeleton_step.get_preview_plane_height()
     )
+    this.weight_skin_step.set_skinning_method(this.edit_skeleton_step.skinning_method())
   }
 
   public show_contributors_dialog (): void {
