@@ -150,6 +150,11 @@ export class StepWeightSkin extends EventTarget {
     this.bone_skinning_formula.set_preview_plane_height(height)
   }
 
+  public set_skinning_method (method: 'classic' | 'heat'): void {
+    if (this.bone_skinning_formula === undefined) return
+    this.bone_skinning_formula.set_skinning_method(method)
+  }
+
   public calculate_weights (): number[][] {
     if (this.bone_skinning_formula === undefined) return [[], []]
     return this.bone_skinning_formula.calculate_indexes_and_weights()

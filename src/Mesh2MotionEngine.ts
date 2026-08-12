@@ -397,6 +397,7 @@ export class Mesh2MotionEngine {
 
       // finish initialization and add origin markers
       // this needs to happen at the end since it is expecting the mesh data
+      this.load_skeleton_step.set_model_mesh(this.load_model_step.model_meshes())
       this.load_skeleton_step.begin()
     }
     else if (this.process_step === ProcessStep.EditSkeleton) {
@@ -618,6 +619,7 @@ export class Mesh2MotionEngine {
       this.edit_skeleton_step.use_head_weight_correction(),
       this.edit_skeleton_step.get_preview_plane_height()
     )
+    this.weight_skin_step.set_skinning_method(this.edit_skeleton_step.skinning_method())
 
     this.weight_skin_step.create_binding_skeleton()
 
@@ -655,6 +657,7 @@ export class Mesh2MotionEngine {
       this.edit_skeleton_step.use_head_weight_correction(),
       this.edit_skeleton_step.get_preview_plane_height()
     )
+    this.weight_skin_step.set_skinning_method(this.edit_skeleton_step.skinning_method())
   }
 
   public show_contributors_dialog (): void {

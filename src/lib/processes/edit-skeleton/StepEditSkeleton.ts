@@ -53,6 +53,9 @@ export class StepEditSkeleton extends EventTarget {
   private enable_head_weight_correction: boolean = false
   private head_weight_correction_height: number = 1.4 // default
 
+  // Skinning method: 'classic' (fast) or 'heat' (higher quality)
+  private _skinning_method: 'classic' | 'heat' = 'classic'
+
   private readonly joint_texture = new TextureLoader().load('/images/skeleton-joint-point.png')
 
   private _added_event_listeners: boolean = false
@@ -350,6 +353,10 @@ export class StepEditSkeleton extends EventTarget {
     return this.head_weight_correction_height
   }
 
+  public skinning_method (): 'classic' | 'heat' {
+    return this._skinning_method
+  }
+
   public add_event_listeners (): void {
     if (this.ui.dom_move_to_origin_button !== null) {
       this.ui.dom_move_to_origin_button.addEventListener('click', () => {
@@ -432,6 +439,14 @@ export class StepEditSkeleton extends EventTarget {
       if (this.ui.dom_preview_plane_height_label !== null) {
         this.ui.dom_preview_plane_height_label.textContent = this.head_weight_correction_height.toFixed(2)
       }
+    })
+
+    // Skinning method selection
+    this.ui.dom_skinning_method_classic?.addEventListener('change', () => {
+      this._skinning_method = 'classic'
+    })
+    this.ui.dom_skinning_method_heat?.addEventListener('change', () => {
+      this._skinning_method = 'heat'
     })
   }
 

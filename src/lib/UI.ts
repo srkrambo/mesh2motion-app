@@ -20,6 +20,8 @@ export class UI {
 
   dom_load_skeleton_tools: HTMLElement | null = null
   dom_load_skeleton_button: HTMLButtonElement | null = null
+  dom_auto_rig_button: HTMLButtonElement | null = null
+  dom_generate_skeleton_button: HTMLButtonElement | null = null
   dom_skeleton_edit_tools: HTMLElement | null = null
   dom_skeleton_drop_type: HTMLSelectElement | null = null
   dom_hand_skeleton_options: HTMLElement | null = null
@@ -54,6 +56,8 @@ export class UI {
   dom_preview_plane_height_input: HTMLInputElement | null = null
   dom_preview_plane_height_label: HTMLElement | null = null
   dom_preview_plane_setting_container: HTMLElement | null = null
+  dom_skinning_method_classic: HTMLInputElement | null = null
+  dom_skinning_method_heat: HTMLInputElement | null = null
 
   dom_skinned_mesh_tools: HTMLElement | null = null
   dom_skinned_mesh_animation_tools: HTMLElement | null = null
@@ -144,6 +148,8 @@ export class UI {
     // UI controls for loading/working with skeleton
     this.dom_load_skeleton_tools = document.querySelector('#load-skeleton-tools')
     this.dom_load_skeleton_button = document.querySelector('#load-skeleton-button')
+    this.dom_auto_rig_button = document.querySelector('#auto-rig-button')
+    this.dom_generate_skeleton_button = document.querySelector('#generate-skeleton-button')
     this.dom_skeleton_edit_tools = document.querySelector('#skeleton-step-actions')
     this.dom_skeleton_drop_type = document.querySelector('#skeleton-selection')
     this.dom_hand_skeleton_options = document.querySelector('#hand-skeleton-options')
@@ -171,6 +177,8 @@ export class UI {
     this.dom_preview_plane_height_input = document.querySelector('#preview-plane-height-input')
     this.dom_preview_plane_height_label = document.querySelector('#preview-plane-height-label')
     this.dom_preview_plane_setting_container = document.querySelector('#preview-plane-setting-container')
+    this.dom_skinning_method_classic = document.querySelector('#skinning-method-classic')
+    this.dom_skinning_method_heat = document.querySelector('#skinning-method-heat')
 
     this.dom_bind_pose_button = document.querySelector('#action_bind_pose')
     // this.dom_scale_skeleton_input_box = document.querySelector('#scale-input')
